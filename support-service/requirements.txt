@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+pydantic
+python-dotenv
+pydantic-settings
+minio
+requests
+numpy
+Pillow
+scipy
+scikit-image
+

@@ -1,0 +1,17 @@
+node_modules
+dist
+.git
+.gitignore
+Dockerfile*
+*.local
+*.log
+*.env
+*.env.*
+**/.DS_Store
+**/Thumbs.db
+coverage
+tmp
+pnpm-lock.yaml
+yarn.lock
+*.swp
+

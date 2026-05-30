@@ -1,0 +1,57 @@
+spring:
+    application:
+        name: @project.artifactId@
+        version: @project.version@
+    mvc:
+        async:
+            request-timeout: 5000
+    servlet:
+        multipart:
+            max-file-size: 2GB
+            max-request-size: 3GB
+    datasource:
+        driver-class-name: org.postgresql.Driver
+        url: jdbc:postgresql://${POSTGRES_URL:localhost:5454}/aerodb
+        username: ${POSTGRES_USER:postgres}
+        password: ${POSTGRES_PASSWORD:postgres}
+    flyway:
+        locations: classpath:db/migration
+        schemas: flyway
+        out-of-order: true
+        validate-on-migrate: true
+        encoding: UTF-8
+        enabled: true
+
+minio:
+    host: ${MINIO_HOST:http://localhost:9000}
+    endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+    access:
+        key: ${MINIO_ROOT_USER:minioadmin}
+    secret:
+        key: ${MINIO_ROOT_PASSWORD:minioadmin}
+
+integrations:
+    minio:
+        limit: 5
+        bucket:
+            raw: "bucket-raw"
+            processed: "bucket-processed"
+    services:
+        url:
+            recognition: ${RECOGNITION_SERVICE_URL:http://localhost:8001}
+            enrichment: ${ENRICHMENT_SERVICE_URL:http://localhost:8002}
+            support: ${SUPPORT_SERVICE_URL:http://localhost:8003}
+
+logging:
+    level:
+        root: info
+
+model:
+    confidence:
+        threshold: 0.98
+
+management:
+    endpoints:
+        web:
+            exposure:
+                include: "health,info,prometheus,metrics"

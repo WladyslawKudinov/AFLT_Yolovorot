@@ -1,0 +1,179 @@
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgresql
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-aerodb}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5454:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d aerodb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server /data --console-address ':9001'
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  spring-service:
+    build: ./spring-service
+    container_name: spring-service
+    environment:
+      - POSTGRES_URL=${POSTGRES_URL}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_HOST=${MINIO_HOST}
+      - RECOGNITION_SERVICE_URL=${RECOGNITION_SERVICE_URL}
+      - ENRICHMENT_SERVICE_URL=${ENRICHMENT_SERVICE_URL}
+      - SUPPORT_SERVICE_URL=${SUPPORT_SERVICE_URL}
+      - PORT=${SPRING_PORT:-8087}
+    ports:
+      - "${SPRING_PORT:-8087}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      spring-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_USERS_DEFAULT_THEME=light
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/etc/grafana/dashboards
+    depends_on:
+      prometheus:
+        condition: service_healthy  
+   
+  recognition-service:
+    build: ./recognition-service
+    container_name: recognition-service
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - MINIO_BUCKET_RAW=bucket-raw
+      - MINIO_BUCKET_PROCESSED=bucket-processed
+      - PORT=${RECOGNITION_PORT_PORT:-8001}
+    ports:
+      - "${RECOGNITION_PORT:-8001}:8001"
+
+  enrichment-service:
+    build: ./enrichment-service
+    container_name: enrichment-service
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - MINIO_BUCKET_RAW=bucket-raw
+      - MINIO_BUCKET_PROCESSED=bucket-processed
+      - PORT=${ENRICHMENT_PORT:-8002}
+    ports:
+      - "${ENRICHMENT_PORT:-8002}:8002"
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - VITE_GRAFANA_URL=${VITE_GRAFANA_URL:-localhost:3000}  
+        - VITE_LABEL_STUDIO_PROJECT_URL=${VITE_LABEL_PROJECT_STUDIO_URL:-http://localhost:8888/projects/1/data?tab=1}
+    ports:
+      - "${FRONTEND_PORT:-8088}:80"
+    depends_on:
+        spring-service:
+            condition: service_healthy
+  support-service:
+    build:
+      context: ./support-service
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - MINIO_BUCKET_RAW=bucket-raw
+      - MINIO_BUCKET_PROCESSED=bucket-processed
+      - LABEL_STUDIO_URL=http://label-studio:8888
+      - LABEL_STUDIO_USERNAME=${LABEL_STUDIO_DEFAULT_USERNAME:-admin}
+      - LABEL_STUDIO_PASSWORD=${LABEL_STUDIO_DEFAULT_PASSWORD:-admin}
+      - LABEL_STUDIO_PROJECT_NAME=Aeroflot_Reannotated
+      - LABEL_STUDIO_API_TOKEN=${LABEL_STUDIO_TOKEN:-mytoken12345}
+      - PORT=${SUPPORT_PORT:-8003}
+    ports:
+      - "${SUPPORT_PORT:-8003}:8003"
+    depends_on:
+        label-studio:
+          condition: service_healthy
+        minio:
+          condition: service_healthy
+    volumes:
+          - ./label-studio-data:/label-studio/data    
+  label-studio:
+      image: heartexlabs/label-studio:latest
+      container_name: label-studio
+      user: root
+      ports:
+        - "8888:8888"
+      environment:
+        - LABEL_STUDIO_HOST=0.0.0.0
+        - LABEL_STUDIO_PORT=8888
+      command: label-studio start --username admin@localhost --password admin --user-token ${LABEL_STUDIO_TOKEN:-mytoken12345} --enable-legacy-api-token
+      volumes:
+        - ./label-studio-data:/label-studio/data
+      healthcheck:
+        test: ["CMD", "curl", "-f", "http://localhost:8888/health"]
+        interval: 5s
+        timeout: 5s
+        retries: 10  
+volumes:
+  pgdata:
+  minio_data:
+  label-studio-data:
+  grafana_data:

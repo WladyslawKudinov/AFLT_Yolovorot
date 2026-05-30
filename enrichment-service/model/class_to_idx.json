@@ -1,0 +1,24 @@
+{
+  "classes_in_order": [
+    "Air_Compressors",
+    "Bearing",
+    "Clamp",
+    "Digital_Caliper",
+    "Digital_Torque_Wrench",
+    "Drill_Bit",
+    "Electric_Drill",
+    "Fire_Extinguisher",
+    "First_Aid_Kit",
+    "Flashlight",
+    "Metal_Nut",
+    "Pliers",
+    "Safety_Glasses",
+    "Safety_Helmet",
+    "Screwdriver",
+    "Socket_Wrench",
+    "Tape_Measure",
+    "Voltage_Tester",
+    "Wirecutter",
+    "Wrench"
+  ]
+}

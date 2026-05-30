@@ -1,0 +1,28 @@
+path: /home/jupyter/datasphere/project/yolov8_dataset_hackaton
+train: train/images
+val: val/images
+test: test/images
+nc: 22
+names:
+- bokorezy
+- klyuch_rozhkovyi_nakidnoj
+- kolovorot
+- otkryvashka
+- otvertka_krest
+- otvertka_minus
+- otvertka_plus
+- passatizhi
+- passatizhi_kontrov
+- razvodnoj_klyuch
+- shernitsa
+- Отвертка «-»
+- Отвертка «+»
+- Отвертка на смещенный крест
+- Коловорот
+- Пассатижи контровочные
+- Пассатижи
+- Шэрница
+- Разводной ключ
+- Открывашка для банок с маслом
+- Ключ рожковыйнакидной ¾
+- Бокорезы
