@@ -1,91 +1,90 @@
-# Vlad's part — Synthetic Dataset Generation (Addition for AITH)
+# Часть Влада — Генерация синтетического датасета (Addition for AITH)
 
-This folder contains my contribution to **YOLOvorot**: the **synthetic data
-generation pipeline** used to train the tool-recognition model. It was built
-separately during the hackathon and is added here to document and highlight
-that part of the work.
+В этой папке — мой вклад в **YOLOvorot**: **пайплайн генерации синтетических
+данных**, на которых обучалась модель распознавания инструментов. Он
+разрабатывался отдельно во время хакатона и добавлен сюда, чтобы задокументировать
+и подсветить эту часть работы.
 
-The core problem: there was almost no real labelled imagery of the ~87 aviation
-tools, and hand-annotating segmentation masks for thousands of photos is not
-feasible in a hackathon. So instead of labelling data, I **generated** it —
-producing thousands of composited images **with pixel-accurate YOLO
-segmentation labels for free**, because the labels come from the compositing
-geometry rather than from a human annotator.
+Суть проблемы: реальных размеченных снимков для ~87 авиационных инструментов
+почти не было, а вручную размечать сегментационные маски для тысяч фотографий
+в рамках хакатона нереально. Поэтому вместо разметки данных я их **генерировал** —
+получая тысячи композитных изображений **с попиксельно точными YOLO-метками
+сегментации бесплатно**, потому что метки берутся из геометрии композитинга,
+а не от человека-разметчика.
 
-## Pipeline overview
+## Обзор пайплайна
 
 ```
-real tool photos          AI-generated Aeroflot                cut-out tool PNGs
-(source_tool_photos/)     workbench backgrounds                (transparent, per class)
-        │                 (01_ai_background_generator)                  │
-        │                          │                                    │
-        └──────────────┬───────────┘                                    │
-                       ▼                                                 ▼
-        background replacement on real shots          random compositing onto backgrounds
-        (preserves existing YOLO boxes)               with scale + rotation + balancing
-                       │                                                 │
-                       └───────────────────┬─────────────────────────────┘
+реальные фото           AI-сгенерированные фоны             вырезанные PNG инструментов
+инструментов            рабочих столов Аэрофлота            (прозрачные, по классам)
+(source_tool_photos/)   (01_ai_background_generator)                  │
+        │                          │                                  │
+        └──────────────┬───────────┘                                  │
+                       ▼                                               ▼
+        замена фона на реальных снимках            случайный композитинг на фоны
+        (сохраняет имеющиеся YOLO-боксы)           с масштабом + поворотом + балансировкой
+                       │                                               │
+                       └───────────────────┬───────────────────────────┘
                                            ▼
-                         synthetic images + YOLO labels
-                         · labels_seg0  → single "tool" class (segmentation)
-                         · labels_cls30 → per-tool class ids (30…86)
+                         синтетические изображения + YOLO-метки
+                         · labels_seg0  → один класс «инструмент» (сегментация)
+                         · labels_cls30 → id классов по инструментам (30…86)
                                            ▼
-                                 train YOLO seg / detection
+                                 обучение YOLO seg / detection
 ```
 
-## What's in here
+## Что здесь лежит
 
-| Folder | What it is |
+| Папка | Что это |
 | --- | --- |
-| `01_ai_background_generator/` | `DataGenerator.ipynb` — generates realistic empty Aeroflot tool-cart / workbench **backgrounds** via the Replicate API, and replaces backgrounds on real tool photos **while preserving their YOLO bounding boxes**. Includes the generated `backgrounds/`. |
-| `02_compose_synthetic_dataset/` | The main compositing engine. Pastes transparent tool cut-outs (`photos_wo_background/`) onto backgrounds with random scale, rotation and count, then derives **polygon segmentation labels directly from each cut-out's alpha channel**. Class balancing ensures every tool is represented. |
-| `source_tool_photos/` | The original real photographs of the tools (screwdrivers, wrenches, контровка, etc.) used as seeds. |
-| `sample_output/` | A 15-image sample of the generated dataset, with both label sets and `class_mapping.json`, so you can see the result without the multi-GB full set. |
+| `01_ai_background_generator/` | `DataGenerator.ipynb` — генерирует реалистичные пустые **фоны** тележек/столов Аэрофлота через Replicate API и заменяет фон на реальных фото инструментов, **сохраняя их YOLO-боксы**. Включает сгенерированные `backgrounds/`. |
+| `02_compose_synthetic_dataset/` | Основной движок композитинга. Накладывает прозрачные вырезки инструментов (`photos_wo_background/`) на фоны со случайным масштабом, поворотом и количеством, затем выводит **полигональные метки сегментации прямо из альфа-канала каждой вырезки**. Балансировка классов гарантирует, что представлен каждый инструмент. |
+| `source_tool_photos/` | Исходные реальные фотографии инструментов (отвёртки, ключи, контровка и т.д.), использованные как заготовки. |
+| `sample_output/` | Выборка из 15 сгенерированных изображений с обоими наборами меток и `class_mapping.json` — чтобы посмотреть результат без многогигабайтного полного набора. |
 
-### Key code
+### Ключевой код
 
-- **`02_compose_synthetic_dataset/compose_dataset.py`** — standalone, runnable
-  version of the compositor. Reads `backgrounds/` + `photos_wo_background/`,
-  writes images + `labels_seg0` (class 0) and `labels_cls30` (per-tool ids) in
-  YOLO-seg polygon format. Contours are extracted from the alpha mask
-  (`cv2.findContours` → `approxPolyDP`) and normalised to `[0,1]`.
-- **`02_compose_synthetic_dataset/ComposeDataset.ipynb`** — higher-fidelity
-  notebook variant: supersampling, alpha blur + light erosion, adaptive
-  contour simplification, rotation rules and per-tool size rules.
-- **`RemoveBackground.ipynb` / `Remover20.ipynb`** — turn raw tool photos into
-  the transparent PNG cut-outs the compositor consumes.
-- **`VisualizeSegmentations.ipynb`** — QA: overlays the generated polygons back
-  onto the images to verify label correctness.
+- **`02_compose_synthetic_dataset/compose_dataset.py`** — самостоятельная,
+  запускаемая версия компоновщика. Читает `backgrounds/` + `photos_wo_background/`,
+  пишет изображения + `labels_seg0` (класс 0) и `labels_cls30` (id по
+  инструментам) в формате YOLO-seg (полигоны). Контуры извлекаются из альфа-маски
+  (`cv2.findContours` → `approxPolyDP`) и нормализуются в `[0,1]`.
+- **`02_compose_synthetic_dataset/ComposeDataset.ipynb`** — ноутбук с повышенной
+  точностью: суперсэмплинг, размытие альфы + лёгкая эрозия, адаптивное упрощение
+  контуров, правила поворота и правила размера для каждого инструмента.
+- **`RemoveBackground.ipynb` / `Remover20.ipynb`** — превращают сырые фото
+  инструментов в прозрачные PNG-вырезки, которые потребляет компоновщик.
+- **`VisualizeSegmentations.ipynb`** — контроль качества: накладывает
+  сгенерированные полигоны обратно на изображения для проверки корректности меток.
 
-## Label format
+## Формат меток
 
-YOLO segmentation, one object per line, coordinates normalised to image size:
+YOLO-сегментация, один объект на строку, координаты нормализованы по размеру
+изображения:
 
 ```
-<class_id> x1 y1 x2 y2 x3 y3 ...        # polygon, ≥3 points
+<class_id> x1 y1 x2 y2 x3 y3 ...        # полигон, ≥3 точек
 ```
 
-- `labels_seg0/` → every object is class `0` (tool-vs-background segmentation).
-- `labels_cls30/` → per-tool class ids starting at `30`; see
-  `sample_output/class_mapping.json` for the id → tool-code mapping (87 tools).
+- `labels_seg0/` → каждый объект имеет класс `0` (сегментация инструмент/фон).
+- `labels_cls30/` → id классов по инструментам, начиная с `30`; см.
+  `sample_output/class_mapping.json` для соответствия id → код инструмента (87 шт.).
 
-## Running the compositor
+## Запуск компоновщика
 
 ```bash
 cd "02_compose_synthetic_dataset"
 pip install opencv-python numpy pillow
-python compose_dataset.py        # writes ./dataset_out/{images,labels_seg0,labels_cls30}
+python compose_dataset.py        # пишет в ./dataset_out/{images,labels_seg0,labels_cls30}
 ```
 
-The AI background notebook additionally needs a Replicate API token. **All API
-tokens have been redacted** — set your own where you see
-`YOUR_REPLICATE_API_TOKEN_HERE`.
+Ноутбуку с AI-фонами дополнительно нужен токен Replicate API. **Все API-токены
+удалены** — подставьте свой там, где видите `YOUR_REPLICATE_API_TOKEN_HERE`.
 
-## Notes
+## Примечания
 
-- The full generated dataset (~13 GB of images + several GB of intermediate
-  zips and raw photos) is intentionally **not** committed; only generation code,
-  the lightweight inputs needed to run it, and a small sample of outputs are
-  included.
-- Tool class codes (e.g. `415qr`, `65325170`, `13110`) follow the customer's
-  internal tool catalogue.
+- Полный сгенерированный датасет (~13 ГБ изображений + несколько ГБ промежуточных
+  zip-архивов и сырых фото) намеренно **не** коммитится; включены только код
+  генерации, лёгкие входные данные для запуска и небольшая выборка результатов.
+- Коды классов инструментов (например, `415qr`, `65325170`, `13110`)
+  соответствуют внутреннему каталогу инструментов заказчика.

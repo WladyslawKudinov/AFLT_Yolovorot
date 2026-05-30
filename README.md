@@ -11,23 +11,23 @@ https://github.com/user-attachments/assets/365914d6-1a5f-4d8a-949f-9d9235fe6af6
 
 ---
 
-### 🧪 Synthetic dataset generation — [`Vlad's part - Addition for AITH/`](./Vlad's%20part%20-%20Addition%20for%20AITH/)
+### 🧪 Генерация синтетического датасета — [`Vlad's part - Addition for AITH/`](./Vlad's%20part%20-%20Addition%20for%20AITH/)
 
-My main contribution: the **synthetic data generation pipeline** that produced
-the training data for the tool-recognition model. With almost no real labelled
-imagery of the ~87 aviation tools, I generated thousands of composited images
-**with pixel-accurate YOLO segmentation labels for free** — the labels come from
-the compositing geometry, not from manual annotation.
+Мой основной вклад: **пайплайн генерации синтетических данных**, на которых
+обучалась модель распознавания инструментов. Реальных размеченных снимков для
+~87 авиационных инструментов почти не было, поэтому я сгенерировал тысячи
+композитных изображений **с попиксельно точными YOLO-метками сегментации
+бесплатно** — метки берутся из геометрии композитинга, а не из ручной разметки.
 
-- **AI-generated backgrounds** — realistic empty Aeroflot workbench/tool-cart
-  surfaces via Replicate, plus background replacement on real photos that
-  preserves existing YOLO boxes.
-- **Compositing engine** — pastes transparent tool cut-outs onto backgrounds
-  with random scale/rotation/count and class balancing, deriving polygon masks
-  straight from each cut-out's alpha channel.
-- **Dual labels** — `labels_seg0` (tool-vs-background) and `labels_cls30`
-  (per-tool class ids 30–86); QA via segmentation overlays.
+- **AI-сгенерированные фоны** — реалистичные пустые поверхности столов/тележек
+  Аэрофлота через Replicate, плюс замена фона на реальных фото с сохранением
+  имеющихся YOLO-боксов.
+- **Движок композитинга** — накладывает прозрачные вырезки инструментов на фоны
+  со случайным масштабом/поворотом/количеством и балансировкой классов, выводя
+  полигональные маски прямо из альфа-канала каждой вырезки.
+- **Двойные метки** — `labels_seg0` (инструмент/фон) и `labels_cls30` (id классов
+  по инструментам 30–86); контроль качества через наложение сегментаций.
 
-See the [folder README](./Vlad's%20part%20-%20Addition%20for%20AITH/README.md)
-for the full pipeline, runnable `compose_dataset.py`, and a 15-image sample of
-the generated dataset.
+Полное описание пайплайна, запускаемый `compose_dataset.py` и выборку из 15
+сгенерированных изображений см. в
+[README папки](./Vlad's%20part%20-%20Addition%20for%20AITH/README.md).
